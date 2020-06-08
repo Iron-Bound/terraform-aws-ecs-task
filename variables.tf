@@ -39,7 +39,7 @@ variable "image_tag" {
 variable "task_role_arn" {
   type        = string
   description = "IAM role to run ECS task with"
-  default     = ""
+  default     = null
 }
 
 variable "ecs_cluster_name" {

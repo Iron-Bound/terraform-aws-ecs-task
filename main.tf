@@ -6,6 +6,7 @@ locals {
 resource "aws_ecs_task_definition" "task_definition" {
   family                = "${local.stack}_${var.name}"
   network_mode          = "awsvpc"
+  task_role_arn         = var.task_role_arn
   execution_role_arn    = "arn:aws:iam::${var.aws_account_id}:role/ecsTaskExecutionRole"
   container_definitions = <<JSON
 [
