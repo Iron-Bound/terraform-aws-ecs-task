@@ -15,7 +15,7 @@ resource "aws_ecs_task_definition" "task_definition" {
     "essential": true,
     "memory": 1024,
     "memoryReservation": 512,
-    "name": ""${local.stack}_${var.name}",
+    "name": "${local.stack}_${var.name}",
     "image": "${local.image}",
     "portMappings": [
       {
