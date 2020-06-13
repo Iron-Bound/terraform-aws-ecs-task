@@ -1,6 +1,6 @@
 locals {
-  image      = var.image_tag == "latest" ? var.image : "${var.image}:${var.image_tag}"
-  stack      = var.stack != "" ? var.stack : var.environment
+  image = var.image_tag == "latest" ? var.image : "${var.image}:${var.image_tag}"
+  stack = var.stack != "" ? var.stack : var.environment
 }
 
 resource "aws_ecs_task_definition" "task_definition" {
@@ -25,4 +25,134 @@ resource "aws_ecs_task_definition" "task_definition" {
   }
 ]
 JSON
+}
+
+resource "aws_ecs_service" "app_service" {
+  count = var.public_subnets != [] ? 1 : 0
+
+  name            = "${local.stack}_${var.name}"
+  cluster         = "${var.ecs_cluster_name}"
+  task_definition = "${aws_ecs_task_definition.task_definition.arn}"
+  desired_count   = "${var.minimum_capacity}"
+
+  ordered_placement_strategy {
+    type  = "spread"
+    field = "instanceId"
+  }
+
+  load_balancer {
+    target_group_arn = "${aws_lb_target_group.alb_target_group_blue[0].arn}"
+    container_name   = "${local.stack}_${var.name}"
+    container_port   = "${var.container_port}"
+  }
+
+  lifecycle {
+    ignore_changes = ["desired_count"]
+  }
+
+  network_configuration {
+    subnets = var.private_subnets
+    security_groups = ["${aws_security_group.app_sg[0].id}"]
+  }
+
+  deployment_controller {
+    type = "CODE_DEPLOY"
+  }
+
+  depends_on = ["aws_lb_target_group.alb_target_group_blue", "aws_lb_target_group.alb_target_group_green"]
+
+}
+
+resource "aws_appautoscaling_target" "ecs_target" {
+  count = var.private_subnets != [] ? 1 : 0
+
+  max_capacity       = "${var.maximum_capacity}"
+  min_capacity       = "${var.minimum_capacity}"
+  resource_id        = "service/${var.ecs_cluster_name}/${aws_ecs_service.app_service[0].name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
+
+resource "aws_appautoscaling_policy" "ecs_policy_scale_up" {
+  count = var.private_subnets != [] ? 1 : 0
+
+  name               = "${local.stack}-${var.name}-scale-up"
+  policy_type        = "StepScaling"
+  resource_id        = "${aws_appautoscaling_target.ecs_target[0].resource_id}"
+  scalable_dimension = "${aws_appautoscaling_target.ecs_target[0].scalable_dimension}"
+  service_namespace  = "${aws_appautoscaling_target.ecs_target[0].service_namespace}"
+
+  step_scaling_policy_configuration {
+      adjustment_type         = "ChangeInCapacity"
+      cooldown                = 120
+      metric_aggregation_type = "Average"
+
+      step_adjustment {
+        metric_interval_lower_bound = 0
+        scaling_adjustment          = 1
+      }
+    }
+
+}
+
+resource "aws_appautoscaling_policy" "ecs_policy_scale_down" {
+  count = var.private_subnets != [] ? 1 : 0
+
+  name               = "${local.stack}-${var.name}-scale-down"
+  policy_type        = "StepScaling"
+  resource_id        = "${aws_appautoscaling_target.ecs_target[0].resource_id}"
+  scalable_dimension = "${aws_appautoscaling_target.ecs_target[0].scalable_dimension}"
+  service_namespace  = "${aws_appautoscaling_target.ecs_target[0].service_namespace}"
+
+  step_scaling_policy_configuration {
+      adjustment_type         = "ChangeInCapacity"
+      cooldown                = 120
+      metric_aggregation_type = "Average"
+
+      step_adjustment {
+        metric_interval_lower_bound = 0
+        scaling_adjustment          = -1
+      }
+    }
+
+}
+
+resource "aws_cloudwatch_metric_alarm" "ecs_cluster_autoscaling_up" {
+  count = var.private_subnets != [] ? 1 : 0
+
+  alarm_name          = "${local.stack}_${var.name}_autoscale_up"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = "120"
+  statistic           = "Average"
+  threshold           = "60"
+
+  dimensions = {
+    ServiceName = "${aws_ecs_service.app_service[0].name}"
+  }
+
+  alarm_description = "This metric monitors ecs cpu utilization"
+  alarm_actions     = ["${aws_appautoscaling_policy.ecs_policy_scale_up[0].arn}"]
+}
+
+resource "aws_cloudwatch_metric_alarm" "ecs_cluster_autoscaling_down" {
+  count = var.private_subnets != [] ? 1 : 0
+  
+  alarm_name          = "${local.stack}_${var.name}_autoscale_down"
+  comparison_operator = "LessThanOrEqualToThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = "120"
+  statistic           = "Average"
+  threshold           = "20"
+
+  dimensions = {
+    ServiceName = "${aws_ecs_service.app_service[0].name}"
+  }
+
+  alarm_description = "This metric monitors ecs cpu utilization"
+  alarm_actions     = ["${aws_appautoscaling_policy.ecs_policy_scale_down[0].arn}"]
 }

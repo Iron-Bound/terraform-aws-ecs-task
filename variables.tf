@@ -48,7 +48,13 @@ variable "ecs_cluster_name" {
   default     = ""
 }
 
-variable "subnets" {
+variable "public_subnets" {
+  type        = list(string)
+  description = "VPC subnets to run ALB in"
+  default     = []
+}
+
+variable "private_subnets" {
   type        = list(string)
   description = "VPC subnets to run ECS task in"
   default     = []
@@ -58,4 +64,40 @@ variable "security_groups" {
   type        = list(string)
   description = "VPC security groups to run ECS task in"
   default     = []
+}
+
+variable "container_port" {
+  type        = string
+  description = "Port to expose in ECS task container"
+  default     = "3000"
+}
+
+variable "hosted_zone_id" {
+  type        = string
+  description = "Zone to create Route53 record in"
+  default     = ""
+}
+
+variable "app_domain" {
+  type        = string
+  description = "Name of A record to create in zone"
+  default     = ""
+}
+
+variable "cert_domain" {
+  type        = string
+  description = "Certificate in ACM to use"
+  default     = ""
+}
+
+variable "minimum_capacity" {
+  type        = number
+  description = "Minimum number of tasks in ECS service"
+  default     = 0
+}
+
+variable "maximum_capacity" {
+  type        = number
+  description = "Maximum number of tasks in ECS service"
+  default     = 0
 }
