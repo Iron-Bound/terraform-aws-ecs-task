@@ -28,7 +28,7 @@ JSON
 }
 
 resource "aws_ecs_service" "app_service" {
-  count = var.public_subnets != [] ? 1 : 0
+  count = length(var.private_subnets) == 0 ? 0 : 1
 
   name            = "${local.stack}_${var.name}"
   cluster         = "${var.ecs_cluster_name}"
@@ -40,31 +40,36 @@ resource "aws_ecs_service" "app_service" {
     field = "instanceId"
   }
 
-  load_balancer {
-    target_group_arn = "${aws_lb_target_group.alb_target_group_blue[0].arn}"
-    container_name   = "${local.stack}_${var.name}"
-    container_port   = "${var.container_port}"
-  }
-
   lifecycle {
-    ignore_changes = ["desired_count"]
+    ignore_changes = ["desired_count","task_definition","load_balancer"]
   }
 
   network_configuration {
     subnets = var.private_subnets
-    security_groups = ["${aws_security_group.app_sg[0].id}"]
+    security_groups = length(var.security_groups) == 0 ? ["${aws_security_group.app_sg[0].id}"] : var.security_groups
   }
 
-  deployment_controller {
-    type = "CODE_DEPLOY"
+  dynamic "deployment_controller" {
+    for_each = length(var.public_subnets) == 0 ? [] : [1]
+
+    content {
+      type = "CODE_DEPLOY"
+    }
   }
 
-  depends_on = ["aws_lb_target_group.alb_target_group_blue", "aws_lb_target_group.alb_target_group_green"]
+  dynamic "load_balancer" {
+    for_each = length(var.public_subnets) == 0 ? [] : [1]
 
+    content {
+      target_group_arn = "${aws_lb_target_group.alb_target_group_blue[0].arn}"
+      container_name   = "${local.stack}_${var.name}"
+      container_port   = "${var.container_port}"
+    }
+  }
 }
 
 resource "aws_appautoscaling_target" "ecs_target" {
-  count = var.private_subnets != [] ? 1 : 0
+  count = length(var.private_subnets) == 0 ? 0 : 1
 
   max_capacity       = "${var.maximum_capacity}"
   min_capacity       = "${var.minimum_capacity}"
@@ -74,7 +79,7 @@ resource "aws_appautoscaling_target" "ecs_target" {
 }
 
 resource "aws_appautoscaling_policy" "ecs_policy_scale_up" {
-  count = var.private_subnets != [] ? 1 : 0
+  count = length(var.private_subnets) == 0 ? 0 : 1
 
   name               = "${local.stack}-${var.name}-scale-up"
   policy_type        = "StepScaling"
@@ -96,7 +101,7 @@ resource "aws_appautoscaling_policy" "ecs_policy_scale_up" {
 }
 
 resource "aws_appautoscaling_policy" "ecs_policy_scale_down" {
-  count = var.private_subnets != [] ? 1 : 0
+  count = length(var.private_subnets) == 0 ? 0 : 1
 
   name               = "${local.stack}-${var.name}-scale-down"
   policy_type        = "StepScaling"
@@ -118,7 +123,7 @@ resource "aws_appautoscaling_policy" "ecs_policy_scale_down" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "ecs_cluster_autoscaling_up" {
-  count = var.private_subnets != [] ? 1 : 0
+  count = length(var.private_subnets) == 0 ? 0 : 1
 
   alarm_name          = "${local.stack}_${var.name}_autoscale_up"
   comparison_operator = "GreaterThanOrEqualToThreshold"
@@ -138,7 +143,7 @@ resource "aws_cloudwatch_metric_alarm" "ecs_cluster_autoscaling_up" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "ecs_cluster_autoscaling_down" {
-  count = var.private_subnets != [] ? 1 : 0
+  count = length(var.private_subnets) == 0 ? 0 : 1
   
   alarm_name          = "${local.stack}_${var.name}_autoscale_down"
   comparison_operator = "LessThanOrEqualToThreshold"
