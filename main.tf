@@ -19,7 +19,7 @@ resource "aws_ecs_task_definition" "task_definition" {
     "image": "${local.image}",
     "portMappings": [
       {
-          "containerPort": 3000
+          "containerPort": ${var.container_port}
       }
     ]
   }

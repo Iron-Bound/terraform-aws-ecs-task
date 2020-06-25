@@ -22,6 +22,10 @@ resource "aws_lb_target_group" "alb_target_group_blue" {
   target_type = "ip"
   vpc_id      = length(var.public_subnets) == 0 ? "" : data.aws_subnet.private_subnet[0].vpc_id
   port        = var.container_port
+
+  health_check {
+    path = var.health_check_path
+  }
 }
 
 resource "aws_lb_target_group" "alb_target_group_green" {
@@ -33,6 +37,10 @@ resource "aws_lb_target_group" "alb_target_group_green" {
   vpc_id      = length(var.public_subnets) == 0 ? "" : data.aws_subnet.private_subnet[0].vpc_id
   port        = var.container_port
 
+  health_check {
+    path = var.health_check_path
+  }
+  
   depends_on = [ "aws_lb.alb" ]
 }
 
@@ -46,7 +54,7 @@ resource "aws_lb_listener" "alb_listener" {
   count = length(var.public_subnets) == 0 ? 0 : 1
 
   load_balancer_arn = "${aws_lb.alb[0].arn}"
-  port              = "443"
+  port              = var.ingress_port
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
 
@@ -56,6 +64,10 @@ resource "aws_lb_listener" "alb_listener" {
   }
 
   certificate_arn = data.aws_acm_certificate.app_cert[0].arn
+
+  lifecycle {
+    ignore_changes = ["default_action"]
+  }
 }
 
 resource "aws_security_group" "alb_sg" {
@@ -66,17 +78,10 @@ resource "aws_security_group" "alb_sg" {
   vpc_id      = length(var.public_subnets) == 0 ? "" : data.aws_subnet.private_subnet[0].vpc_id
 
   ingress {
-    from_port   = 443
-    to_port     = 443
+    from_port   = var.ingress_port
+    to_port     = var.ingress_port
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.ingress_cidr_blocks
   }
 
   egress {

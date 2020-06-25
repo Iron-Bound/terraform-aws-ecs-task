@@ -13,3 +13,7 @@ output "green_target_group_arn" {
 output "app_sg_id" {
   value = (length(var.security_groups) == 0) ? length(var.private_subnets) == 0 ? "" : aws_security_group.app_sg[0].id : var.security_groups[0]
 }
+
+output "app_fqdn" {
+  value = var.hosted_zone_id != "" ? aws_route53_record.www[0].fqdn : ""
+}

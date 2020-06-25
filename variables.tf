@@ -101,3 +101,21 @@ variable "maximum_capacity" {
   description = "Maximum number of tasks in ECS service"
   default     = 0
 }
+
+variable "ingress_port" {
+  type        = string
+  description = "Port for ALB to listen on"
+  default     = "443"
+}
+
+variable "ingress_cidr_blocks" {
+  type        = list(string)
+  description = "CIDR blocks to allow into ALB"
+  default     = ["0.0.0.0/0"]
+}
+
+variable "health_check_path" {
+  type        = string
+  description = "Path to check target for healthiness"
+  default     = "/"
+}
