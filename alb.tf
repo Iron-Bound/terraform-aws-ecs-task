@@ -10,7 +10,7 @@ resource "aws_lb" "alb" {
   name               = replace("${local.stack}_${var.name}", "_", "")
   subnets            = var.public_subnets
   security_groups    = [aws_security_group.alb_sg[0].id]
-  internal           = false
+  internal           = var.internal
   load_balancer_type = "application"
 }
 

@@ -119,3 +119,9 @@ variable "health_check_path" {
   description = "Path to check target for healthiness"
   default     = "/"
 }
+
+variable "internal" {
+  description = "Bool to set load balancer to internal versus internet-facing"
+  type        = bool
+  default     = false
+}
