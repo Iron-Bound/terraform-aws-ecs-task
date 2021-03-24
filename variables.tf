@@ -108,6 +108,12 @@ variable "ingress_port" {
   default     = "443"
 }
 
+variable "ssl_policy" {
+  type        = string
+  description = "Predefined security policies for HTTPS/SSL listeners"
+  default     = "ELBSecurityPolicy-TLS-1-2-2017-01"
+}
+
 variable "ingress_cidr_blocks" {
   type        = list(string)
   description = "CIDR blocks to allow into ALB"
