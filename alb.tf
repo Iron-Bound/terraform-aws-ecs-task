@@ -40,23 +40,23 @@ resource "aws_lb_target_group" "alb_target_group_green" {
   health_check {
     path = var.health_check_path
   }
-  
-  depends_on = [ "aws_lb.alb" ]
+
+  depends_on = [aws_lb.alb]
 }
 
 data "aws_acm_certificate" "app_cert" {
   count = var.cert_domain != "" ? 1 : 0
 
-  domain = "${var.cert_domain}"
+  domain = var.cert_domain
 }
 
 resource "aws_lb_listener" "alb_listener" {
   count = length(var.public_subnets) == 0 ? 0 : 1
 
-  load_balancer_arn = "${aws_lb.alb[0].arn}"
+  load_balancer_arn = aws_lb.alb[0].arn
   port              = var.ingress_port
   protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  ssl_policy        = var.ssl_policy
 
   default_action {
     target_group_arn = aws_lb_target_group.alb_target_group_blue[0].arn
@@ -66,7 +66,7 @@ resource "aws_lb_listener" "alb_listener" {
   certificate_arn = data.aws_acm_certificate.app_cert[0].arn
 
   lifecycle {
-    ignore_changes = ["default_action"]
+    ignore_changes = [default_action]
   }
 }
 
@@ -85,9 +85,9 @@ resource "aws_security_group" "alb_sg" {
   }
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"
     security_groups = length(var.security_groups) == 0 ? ["${aws_security_group.app_sg[0].id}"] : var.security_groups
   }
 
@@ -119,21 +119,21 @@ resource "aws_security_group" "app_sg" {
 resource "aws_security_group_rule" "alb_sg_rule" {
   count = length(var.security_groups) == 0 ? length(var.private_subnets) == 0 ? 0 : 1 : 0
 
-  security_group_id = aws_security_group.app_sg[0].id
-  type = "ingress"
-  from_port       = 0
-  to_port         = 0
-  protocol        = "-1"
+  security_group_id        = aws_security_group.app_sg[0].id
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
   source_security_group_id = length(aws_security_group.alb_sg) > 0 ? aws_security_group.alb_sg[0].id : ""
 }
 
 resource "aws_security_group_rule" "app_sg_rule" {
   count = length(var.security_groups) == 0 ? length(var.private_subnets) == 0 ? 0 : 1 : 0
 
-  security_group_id = aws_security_group.app_sg[0].id
-  type = "ingress"
-  from_port       = 0
-  to_port         = 0
-  protocol        = "-1"
+  security_group_id        = aws_security_group.app_sg[0].id
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
   source_security_group_id = aws_security_group.app_sg[0].id
 }
